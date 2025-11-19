@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pro Video Editor - Web App</title>
+  <style>
+    :root {
+      --bg: #0f1115;
+      --panel: #151922;
+      --panel-2: #111521;
+      --accent: #6aa2ff;
+      --accent-2: #7b5cff;
+      --text: #e5e7eb;
+      --muted: #9aa3b2;
+      --danger: #ff5c7a;
+      --success: #4ad295;
+      --warning: #f5b759;
+      --border: #232838;
+      --chip: #1b2030;
+      --chip-2: #1f2537;
+      --shadow: 0 10px 30px rgba(0,0,0,0.35);
+      --radius: 12px;
+      --radius-sm: 8px;
+      --radius-xs: 6px;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica Neue, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      color: var(--text);
+      background: radial-gradient(1200px 800px at 80% -10%, rgba(107, 99, 255, 0.12), transparent 60%),
+                  radial-gradient(1000px 700px at -10% -10%, rgba(77, 170, 255, 0.10), transparent 60%),
+                  var(--bg);
+      overflow: hidden;
+    }
+
+    /* Layout */
+    .app {
+      display: grid;
+      grid-template-rows: 64px 1fr 220px;
+      grid-template-columns: 280px 1fr 320px;
+      grid-template-areas:
+        "header header header"
+        "sidebar main right"
+        "timeline timeline timeline";
+      height: 100vh;
+      gap: 12px;
+      padding: 12px;
+    }
+
+    .panel { background: linear-gradient(180deg, var(--panel), var(--panel-2)); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
+
+    .header { grid-area: header; display: flex; align-items: center; gap: 14px; padding: 10px 14px; }
+    .logo {
+      display: flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: 0.4px;
+    }
+    .logo .dot { width: 12px; height: 12px; background: linear-gradient(135deg, var(--accent), var(--accent-2)); border-radius: 50%; box-shadow: 0 0 0 6px rgba(106, 162, 255, 0.08), 0 0 20px rgba(106, 162, 255, 0.45); }
+
+    .spacer { flex: 1; }
+
+    .toolbar {
+      display: flex; align-items: center; gap: 8px;
+      background: linear-gradient(180deg, #181d2a, #141a28);
+      border: 1px solid var(--border);
+      padding: 6px; border-radius: var(--radius);
+    }
+
+    .btn { color: var(--text); background: linear-gradient(180deg, #1c2232, #161c2b); border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: 120ms ease; user-select: none; }
+    .btn:hover { transform: translateY(-1px); background: linear-gradient(180deg, #20283a, #171d2e); }
+    .btn:active { transform: translateY(0); }
+    .btn.primary { background: linear-gradient(180deg, #2a4a88, #233b6d); border-color: #2d3d68; }
+    .btn.primary:hover { background: linear-gradient(180deg, #31559a, #294581); }
+    .btn.danger { background: linear-gradient(180deg, #5a2433, #441823); border-color: #5c2a38; }
+
+    .sidebar { grid-area: sidebar; padding: 10px; display: grid; grid-template-rows: min-content 1fr; gap: 10px; }
+    .sidebar .section { background: linear-gradient(180deg, #151a28, #111725); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; }
+
+    .main { grid-area: main; display: grid; grid-template-rows: 1fr min-content; gap: 10px; padding: 10px; }
+
+    .preview { position: relative; display: grid; place-items: center; padding: 10px; background: radial-gradient(600px 360px at 50% 0%, rgba(71, 192, 255, 0.05), transparent 60%), linear-gradient(180deg, #121726, #101420); border: 1px solid var(--border); border-radius: var(--radius); }
+    .preview canvas { background: #000; max-width: 100%; width: 100%; height: auto; border-radius: var(--radius-sm); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06), 0 10px 30px rgba(0,0,0,0.3); }
+
+    .right { grid-area: right; padding: 10px; display: grid; grid-template-rows: min-content 1fr; gap: 10px; }
+
+    .controls { background: linear-gradient(180deg, #151a28, #111725); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; display: grid; gap: 12px; }
+
+    .control-row { display: grid; grid-template-columns: 150px 1fr 60px; gap: 8px; align-items: center; }
+    .control-row label { color: var(--muted); font-size: 12px; }
+    .control-row input[type="range"] { width: 100%; }
+    .value-chip { background: var(--chip); border: 1px solid var(--border); color: var(--text); font-size: 12px; padding: 4px 8px; border-radius: 8px; text-align: center; }
+
+    .timeline { grid-area: timeline; padding: 10px; display: grid; grid-template-rows: min-content 1fr; gap: 8px; }
+    .ruler { height: 28px; position: relative; background: linear-gradient(180deg, #131827, #0f1420); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+
+    .ruler .playhead { position: absolute; top: 0; width: 2px; background: var(--accent); box-shadow: 0 0 0 6px rgba(122, 152, 255, 0.06); }
+
+    .tracks { background: linear-gradient(180deg, #111621, #0e121b); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px; display: grid; gap: 8px; overflow: auto; }
+
+    .track { position: relative; background: linear-gradient(180deg, #0e1320, #0b0f18); border: 1px dashed #273047; border-radius: 10px; padding: 6px 8px; min-height: 64px; }
+    .track-title { position: absolute; top: -10px; left: 8px; background: var(--chip-2); border: 1px solid var(--border); padding: 2px 8px; border-radius: 6px; color: var(--muted); font-size: 11px; }
+
+    .clip { position: absolute; height: 48px; background: linear-gradient(180deg, rgba(106,162,255,0.2), rgba(100,132,255,0.14)); border: 1px solid #3a4b77; border-radius: 8px; color: #cfe0ff; overflow: hidden; display: flex; align-items: center; padding: 4px 8px; gap: 8px; cursor: grab; user-select: none; }
+    .clip:active { cursor: grabbing; }
+    .clip.video { background: linear-gradient(180deg, rgba(106,162,255,0.20), rgba(106,162,255,0.12)); border-color: #3f5aa0; }
+    .clip.audio { background: linear-gradient(180deg, rgba(74,210,149,0.20), rgba(74,210,149,0.12)); border-color: #2c8b67; color: #d8ffef; }
+    .clip.overlay { background: linear-gradient(180deg, rgba(245,183,89,0.18), rgba(245,183,89,0.10)); border-color: #8a6b2f; color: #ffe9c5; }
+    .handle { position: absolute; top: 0; width: 8px; height: 100%; background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02)); opacity: 0.8; }
+    .handle.left { left: 0; cursor: ew-resize; border-right: 1px solid rgba(255,255,255,0.08); border-top-left-radius: 8px; border-bottom-left-radius: 8px; }
+    .handle.right { right: 0; cursor: ew-resize; border-left: 1px solid rgba(255,255,255,0.08); border-top-right-radius: 8px; border-bottom-right-radius: 8px; }
+
+    .play-controls { display: flex; align-items: center; gap: 8px; background: linear-gradient(180deg, #151a28, #111725); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px; }
+
+    .kbd { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 12px; background: #0c0f16; border: 1px solid var(--border); padding: 2px 6px; border-radius: 6px; color: var(--muted); }
+
+    .file-drop { border: 1px dashed #33405f; background: linear-gradient(180deg, rgba(106,162,255,0.06), rgba(100,132,255,0.04)); padding: 10px; border-radius: 10px; text-align: center; color: var(--muted); cursor: pointer; }
+    .file-drop:hover { background: linear-gradient(180deg, rgba(106,162,255,0.10), rgba(100,132,255,0.06)); }
+
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+
+    .badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 999px; border: 1px solid var(--border); background: var(--chip-2); color: var(--muted); font-size: 12px; }
+
+    .hidden { display: none !important; }
+
+    /* Scrollbars */
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-thumb { background: #252b3b; border-radius: 20px; border: 2px solid #121624; }
+    ::-webkit-scrollbar-track { background: #0d1119; border-radius: 20px; }
+
+    /* Tooltip style titles */
+    [title] { position: relative; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="header panel">
+      <div class="logo">
+        <div class="dot"></div>
+        <div>Pro Video Editor</div>
+        <span class="badge">Web ? HTML/CSS/JS</span>
+      </div>
+
+      <div class="spacer"></div>
+
+      <div class="toolbar">
+        <button id="btnNew" class="btn" title="Reset project (N)">New</button>
+        <button id="btnOpen" class="btn" title="Open project JSON (O)">Open</button>
+        <button id="btnSave" class="btn" title="Save project JSON (S)">Save</button>
+        <div style="width:1px;height:24px;background:#26304a;margin:0 4px"></div>
+        <button id="btnUndo" class="btn" title="Undo (Ctrl+Z)">Undo</button>
+        <button id="btnRedo" class="btn" title="Redo (Ctrl+Y)">Redo</button>
+        <div style="width:1px;height:24px;background:#26304a;margin:0 4px"></div>
+        <button id="btnExportWebM" class="btn primary" title="Export WebM (E)">Export WebM</button>
+        <button id="btnExportMP4" class="btn" title="Export MP4 (experimental)">Export MP4</button>
+      </div>
+    </div>
+
+    <div class="sidebar panel">
+      <div class="section">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <div style="font-weight:600;">Media</div>
+          <span class="badge">Upload</span>
+        </div>
+        <div class="grid-2">
+          <label class="file-drop" for="videoInput">+ Video<br/><small>MP4/WebM</small></label>
+          <input id="videoInput" type="file" accept="video/*" class="hidden" />
+          <label class="file-drop" for="audioInput">+ Audio<br/><small>MP3/WAV/OGG</small></label>
+          <input id="audioInput" type="file" accept="audio/*" class="hidden" />
+          <label class="file-drop" for="imageInput">+ Image<br/><small>PNG/JPG</small></label>
+          <input id="imageInput" type="file" accept="image/*" class="hidden" />
+        </div>
+      </div>
+
+      <div class="section">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <div style="font-weight:600;">Tools</div>
+          <span class="badge">Timeline</span>
+        </div>
+        <div class="grid-3">
+          <button id="btnSplit" class="btn" title="Split at playhead (X)">Split</button>
+          <button id="btnTrimStart" class="btn" title="Trim start to playhead (I)">Trim In</button>
+          <button id="btnTrimEnd" class="btn" title="Trim end to playhead (O)">Trim Out</button>
+          <button id="btnAddText" class="btn" title="Add text overlay (T)">Text</button>
+          <button id="btnAddImageOverlay" class="btn" title="Add image overlay (Shift+I)">Img Overlay</button>
+          <button id="btnDelete" class="btn danger" title="Delete selected (Del)">Delete</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="main">
+      <div class="preview panel">
+        <canvas id="previewCanvas" width="1280" height="720"></canvas>
+      </div>
+      <div class="play-controls panel" style="justify-content:space-between;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <button id="btnPlayPause" class="btn" title="Space">Play</button>
+          <button id="btnStop" class="btn" title="Stop (.)">Stop</button>
+          <span class="kbd">Space</span>
+          <span class="kbd">J/K/L</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div class="badge" id="timeBadge">00:00.000</div>
+          <div class="badge" id="durationBadge">00:00.000</div>
+          <div class="badge" id="zoomBadge">Zoom: 1x</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="right">
+      <div class="controls">
+        <div style="font-weight:600">Filters</div>
+        <div class="control-row">
+          <label for="brightness">Brightness</label>
+          <input id="brightness" type="range" min="0" max="2" step="0.01" value="1" />
+          <div class="value-chip" id="brightnessVal">1.00</div>
+        </div>
+        <div class="control-row">
+          <label for="contrast">Contrast</label>
+          <input id="contrast" type="range" min="0" max="2" step="0.01" value="1" />
+          <div class="value-chip" id="contrastVal">1.00</div>
+        </div>
+        <div class="control-row">
+          <label for="saturation">Saturation</label>
+          <input id="saturation" type="range" min="0" max="2" step="0.01" value="1" />
+          <div class="value-chip" id="saturationVal">1.00</div>
+        </div>
+        <div class="control-row">
+          <label for="grayscale">Grayscale</label>
+          <input id="grayscale" type="range" min="0" max="1" step="0.01" value="0" />
+          <div class="value-chip" id="grayscaleVal">0.00</div>
+        </div>
+        <div class="control-row">
+          <label for="blur">Blur</label>
+          <input id="blur" type="range" min="0" max="10" step="0.1" value="0" />
+          <div class="value-chip" id="blurVal">0.0px</div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <div style="font-weight:600">Playback & Clip</div>
+        <div class="control-row">
+          <label for="speed">Speed</label>
+          <input id="speed" type="range" min="0.25" max="3" step="0.05" value="1" />
+          <div class="value-chip" id="speedVal">1.00x</div>
+        </div>
+        <div class="control-row">
+          <label for="zoom">Timeline Zoom</label>
+          <input id="zoom" type="range" min="0.5" max="5" step="0.1" value="1" />
+          <div class="value-chip" id="zoomVal">1.0x</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="timeline">
+      <div class="ruler panel">
+        <div id="playhead" class="playhead" style="left:0;height:100%"></div>
+      </div>
+      <div class="tracks panel">
+        <div class="track" id="trackVideo">
+          <div class="track-title">Video</div>
+        </div>
+        <div class="track" id="trackOverlays">
+          <div class="track-title">Overlays</div>
+        </div>
+        <div class="track" id="trackAudio">
+          <div class="track-title">Audio</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hidden runtime elements -->
+  <video id="hiddenVideo" crossorigin="anonymous" playsinline class="hidden"></video>
+  <audio id="hiddenAudio" crossorigin="anonymous" class="hidden"></audio>
+
+  <!-- Optional ffmpeg.wasm for MP4 export -->
+  <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/ffmpeg.min.js"></script>
+
+  <script>
+  ;(() => {
+    // ---------- Utilities ----------
+    const $ = (sel) => document.querySelector(sel);
+    const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+    const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
+    const formatTime = (ms) => {
+      const t = Math.max(0, ms);
+      const s = Math.floor(t / 1000);
+      const m = Math.floor(s / 60);
+      const h = Math.floor(m / 60);
+      const mm = (m % 60).toString().padStart(2, '0');
+      const ss = (s % 60).toString().padStart(2, '0');
+      const msStr = Math.floor(t % 1000).toString().padStart(3, '0');
+      return (h > 0 ? h+':' : '') + mm + ':' + ss + '.' + msStr;
+    };
+
+    const downloadBlob = (blob, filename) => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename; a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    };
+
+    // ---------- Project State ----------
+    const project = {
+      durationMs: 0,
+      zoom: 1,
+      filters: { brightness: 1, contrast: 1, saturation: 1, grayscale: 0, blur: 0 },
+      videoTrack: [], // [{ id, src, trimStart:ms, trimEnd:ms, startMs, durationMs, speed }]
+      overlayTrack: [], // [{ id, type:'text'|'image', text?, image?, x,y, w,h, startMs, durationMs }]
+      audioTrack: [], // [{ id, src, startMs, durationMs, gain }]
+      selectionId: null,
+      selectionType: null, // 'video'|'overlay'|'audio'
+      playheadMs: 0,
+      isPlaying: false
+    };
+
+    let history = [];
+    let future = [];
+    const pushHistory = () => {
+      history.push(JSON.stringify(project));
+      if (history.length > 200) history.shift();
+      future = [];
+    };
+    const applyState = (stateStr) => {
+      const s = JSON.parse(stateStr);
+      Object.assign(project, s);
+      renderAll();
+    };
+
+    // ---------- Elements ----------
+    const canvas = $('#previewCanvas');
+    const ctx = canvas.getContext('2d');
+    const hiddenVideo = $('#hiddenVideo');
+
+    const playBtn = $('#btnPlayPause');
+    const stopBtn = $('#btnStop');
+    const timeBadge = $('#timeBadge');
+    const durationBadge = $('#durationBadge');
+    const zoomBadge = $('#zoomBadge');
+
+    const playheadEl = $('#playhead');
+
+    const trackVideo = $('#trackVideo');
+    const trackOverlays = $('#trackOverlays');
+    const trackAudio = $('#trackAudio');
+
+    const inputs = {
+      video: $('#videoInput'),
+      audio: $('#audioInput'),
+      image: $('#imageInput'),
+      brightness: $('#brightness'),
+      contrast: $('#contrast'),
+      saturation: $('#saturation'),
+      grayscale: $('#grayscale'),
+      blur: $('#blur'),
+      speed: $('#speed'),
+      zoom: $('#zoom')
+    };
+
+    const chips = {
+      brightness: $('#brightnessVal'),
+      contrast: $('#contrastVal'),
+      saturation: $('#saturationVal'),
+      grayscale: $('#grayscaleVal'),
+      blur: $('#blurVal'),
+      speed: $('#speedVal'),
+      zoom: $('#zoomVal')
+    };
+
+    // ---------- Timeline metrics ----------
+    const PX_PER_SEC_BASE = 120; // base zoom
+    const TRACK_PADDING = 8;
+    const TRACK_CONTENT_TOP = 16;
+
+    const getPxPerMs = () => (PX_PER_SEC_BASE * project.zoom) / 1000;
+
+    const recomputeDuration = () => {
+      let end = 0;
+      for (const c of project.videoTrack) end = Math.max(end, c.startMs + c.durationMs);
+      for (const c of project.overlayTrack) end = Math.max(end, c.startMs + c.durationMs);
+      for (const c of project.audioTrack) end = Math.max(end, c.startMs + c.durationMs);
+      project.durationMs = Math.max(end, project.durationMs);
+      durationBadge.textContent = formatTime(project.durationMs);
+    };
+
+    // ---------- Rendering ----------
+    function buildFilterString() {
+      const f = project.filters;
+      return `brightness(${f.brightness}) contrast(${f.contrast}) saturate(${f.saturation}) grayscale(${f.grayscale}) blur(${f.blur}px)`;
+    }
+
+    async function renderPreviewFrame() {
+      ctx.save();
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+
+      // Find video clip at playhead
+      const t = project.playheadMs;
+      const active = project.videoTrack.find(c => t >= c.startMs && t <= c.startMs + c.durationMs);
+      if (active) {
+        if (hiddenVideo.src !== active.srcUrl) {
+          hiddenVideo.src = active.srcUrl;
+          await hiddenVideo.play().catch(()=>{});
+          hiddenVideo.pause();
+        }
+        // Compute time within source
+        const local = (t - active.startMs) * (active.speed || 1);
+        const srcTime = (active.trimStart + local) / 1000;
+        if (Math.abs((hiddenVideo.currentTime || 0) - srcTime) > 0.02) {
+          try { hiddenVideo.currentTime = srcTime; } catch(e) {}
+        }
+        // Draw with filters
+        ctx.filter = buildFilterString();
+        const vw = canvas.width; const vh = canvas.height;
+        ctx.drawImage(hiddenVideo, 0, 0, vw, vh);
+        ctx.filter = 'none';
+      }
+
+      // Overlays
+      for (const ov of project.overlayTrack) {
+        if (t >= ov.startMs && t <= ov.startMs + ov.durationMs) {
+          const x = ov.x * canvas.width;
+          const y = ov.y * canvas.height;
+          const w = ov.w * canvas.width;
+          const h = ov.h * canvas.height;
+          if (ov.type === 'text') {
+            ctx.fillStyle = 'white';
+            ctx.font = `${Math.max(12, h)}px sans-serif`;
+            ctx.textBaseline = 'top';
+            ctx.shadowColor = 'rgba(0,0,0,0.6)';
+            ctx.shadowBlur = 6;
+            wrapText(ctx, ov.text || 'Text', x, y, w, Math.max(12, h));
+          } else if (ov.type === 'image' && ov.imageEl) {
+            ctx.drawImage(ov.imageEl, x, y, w, h);
+          }
+        }
+      }
+
+      ctx.restore();
+    }
+
+    function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
+      const words = (text || '').split(' ');
+      let line = '';
+      let yy = y;
+      for (let n=0; n<words.length; n++) {
+        const testLine = line + words[n] + ' ';
+        const metrics = ctx.measureText(testLine);
+        const testWidth = metrics.width;
+        if (testWidth > maxWidth && n > 0) {
+          ctx.fillText(line, x, yy);
+          line = words[n] + ' ';
+          yy += lineHeight;
+        } else {
+          line = testLine;
+        }
+      }
+      ctx.fillText(line, x, yy);
+    }
+
+    function renderRuler() {
+      const ruler = document.querySelector('.ruler');
+      const pxPerMs = getPxPerMs();
+      // draw ticks using CSS gradients
+      const totalPx = Math.max(ruler.clientWidth, project.durationMs * pxPerMs + 40);
+      const secEvery = 1000;
+      const majorEvery = 5000;
+      const bg = `repeating-linear-gradient(to right, transparent, transparent 9px, rgba(255,255,255,0.06) 9px, rgba(255,255,255,0.06) 10px), repeating-linear-gradient(to right, transparent, transparent ${secEvery*pxPerMs-1}px, rgba(255,255,255,0.12) ${secEvery*pxPerMs-1}px, rgba(255,255,255,0.12) ${secEvery*pxPerMs}px)`;
+      ruler.style.backgroundImage = bg;
+      // playhead position
+      const phx = project.playheadMs * pxPerMs;
+      playheadEl.style.left = phx + 'px';
+    }
+
+    function createClipEl(clip, type) {
+      const el = document.createElement('div');
+      el.className = `clip ${type}`;
+      el.dataset.id = clip.id;
+      el.innerHTML = `<div class="handle left"></div><div class="label">${clip.label || type.toUpperCase()}</div><div class="handle right"></div>`;
+      // Positioning
+      const pxPerMs = getPxPerMs();
+      const left = clip.startMs * pxPerMs + TRACK_PADDING;
+      const width = Math.max(30, clip.durationMs * pxPerMs);
+      el.style.left = left + 'px';
+      el.style.top = (TRACK_CONTENT_TOP) + 'px';
+      el.style.width = width + 'px';
+
+      // Drag move
+      let dragType = null; // 'move'|'left'|'right'
+      let startX = 0; let startLeft = 0; let startWidth = 0; let startStartMs = 0; let startDuration = 0;
+
+      function onDown(ev) {
+        const target = ev.target;
+        startX = ev.clientX;
+        startLeft = leftFromEl();
+        startWidth = el.getBoundingClientRect().width;
+        startStartMs = clip.startMs;
+        startDuration = clip.durationMs;
+        if (target.classList.contains('handle')) {
+          dragType = target.classList.contains('left') ? 'left' : 'right';
+        } else { dragType = 'move'; }
+        project.selectionId = clip.id; project.selectionType = type;
+        pushHistory();
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
+      }
+      function leftFromEl() { return parseFloat(el.style.left || '0'); }
+
+      function onMove(ev) {
+        const dx = ev.clientX - startX;
+        const pxPerMs = getPxPerMs();
+        if (dragType === 'move') {
+          const newLeft = clamp(startLeft + dx, TRACK_PADDING, 1e9);
+          el.style.left = newLeft + 'px';
+          clip.startMs = Math.max(0, Math.round((newLeft - TRACK_PADDING) / pxPerMs));
+        } else if (dragType === 'left') {
+          const newLeft = clamp(startLeft + dx, TRACK_PADDING, startLeft + startWidth - 30);
+          const newWidth = Math.max(30, startWidth - (newLeft - startLeft));
+          el.style.left = newLeft + 'px'; el.style.width = newWidth + 'px';
+          const deltaMs = Math.round((newLeft - startLeft) / pxPerMs);
+          const newDuration = Math.max(100, Math.round(newWidth / pxPerMs));
+          clip.startMs = Math.max(0, startStartMs + deltaMs);
+          const change = startDuration - newDuration;
+          clip.durationMs = newDuration;
+          if (type === 'video') clip.trimStart = clamp(clip.trimStart + change * (clip.speed || 1), 0, clip.trimStart + clip.trimEnd);
+        } else if (dragType === 'right') {
+          const newWidth = Math.max(30, startWidth + dx);
+          el.style.width = newWidth + 'px';
+          clip.durationMs = Math.max(100, Math.round(newWidth / pxPerMs));
+        }
+        recomputeDuration();
+        renderRuler();
+      }
+      function onUp() {
+        window.removeEventListener('mousemove', onMove);
+        window.removeEventListener('mouseup', onUp);
+        renderTracks();
+      }
+
+      el.addEventListener('mousedown', onDown);
+      return el;
+    }
+
+    function renderTracks() {
+      // Clear
+      for (const t of [trackVideo, trackOverlays, trackAudio]) {
+        t.querySelectorAll('.clip').forEach(n => n.remove());
+      }
+      const pxPerMs = getPxPerMs();
+
+      // Video clips
+      for (const c of project.videoTrack) {
+        const el = createClipEl(c, 'video');
+        trackVideo.appendChild(el);
+      }
+      // Overlays
+      for (const c of project.overlayTrack) {
+        const el = createClipEl(c, 'overlay');
+        el.querySelector('.label').textContent = c.type === 'text' ? (c.text?.slice(0,18)||'Text') : 'Image';
+        trackOverlays.appendChild(el);
+      }
+      // Audio
+      for (const c of project.audioTrack) {
+        const el = createClipEl(c, 'audio');
+        el.querySelector('.label').textContent = 'Audio';
+        trackAudio.appendChild(el);
+      }
+
+      // Track widths
+      const width = Math.max(document.querySelector('.tracks').clientWidth, project.durationMs * pxPerMs + 100);
+      [trackVideo, trackOverlays, trackAudio].forEach(t => t.style.width = width + 'px');
+
+      renderRuler();
+    }
+
+    function renderAll() {
+      recomputeDuration();
+      renderTracks();
+      renderRuler();
+      updateFilterChips();
+      updateSpeedChip();
+      timeBadge.textContent = formatTime(project.playheadMs);
+      zoomBadge.textContent = `Zoom: ${project.zoom.toFixed(1)}x`;
+      renderPreviewFrame();
+    }
+
+    function updateFilterChips() {
+      chips.brightness.textContent = project.filters.brightness.toFixed(2);
+      chips.contrast.textContent = project.filters.contrast.toFixed(2);
+      chips.saturation.textContent = project.filters.saturation.toFixed(2);
+      chips.grayscale.textContent = project.filters.grayscale.toFixed(2);
+      chips.blur.textContent = project.filters.blur.toFixed(1) + 'px';
+    }
+    function updateSpeedChip() { chips.speed.textContent = (inputs.speed.valueAsNumber).toFixed(2) + 'x'; }
+
+    // ---------- Interaction ----------
+    // Playhead drag on ruler
+    (function initRulerDrag(){
+      const ruler = document.querySelector('.ruler');
+      let dragging = false;
+      function setFromEvent(ev) {
+        const rect = ruler.getBoundingClientRect();
+        const x = clamp(ev.clientX - rect.left, 0, 1e9);
+        const ms = Math.round(x / getPxPerMs());
+        project.playheadMs = clamp(ms, 0, project.durationMs);
+        timeBadge.textContent = formatTime(project.playheadMs);
+        renderRuler();
+        renderPreviewFrame();
+      }
+      ruler.addEventListener('mousedown', (ev)=>{ dragging=true; setFromEvent(ev); });
+      window.addEventListener('mousemove', (ev)=>{ if (!dragging) return; setFromEvent(ev); });
+      window.addEventListener('mouseup', ()=> dragging=false);
+    })();
+
+    // File uploads
+    inputs.video.addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const url = URL.createObjectURL(file);
+      await addVideoClip(url, file.name);
+      pushHistory();
+      renderAll();
+    });
+
+    inputs.audio.addEventListener('change', async (e) => {
+      const file = e.target.files?.[0]; if (!file) return;
+      const url = URL.createObjectURL(file);
+      const clip = { id: uid(), src: url, srcUrl: url, startMs: project.playheadMs, durationMs: 10000, gain: 1, label: file.name };
+      project.audioTrack.push(clip);
+      recomputeDuration();
+      pushHistory();
+      renderAll();
+    });
+
+    inputs.image.addEventListener('change', async (e) => {
+      const file = e.target.files?.[0]; if (!file) return;
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      await new Promise((res)=>{ img.onload=res; img.src=url; });
+      const clip = { id: uid(), type:'image', image:url, imageEl: img, x:0.1, y:0.1, w:0.3, h:0.3, startMs: project.playheadMs, durationMs: 5000 };
+      project.overlayTrack.push(clip);
+      recomputeDuration();
+      pushHistory();
+      renderAll();
+    });
+
+    async function addVideoClip(url, label) {
+      // Probe duration via hidden video
+      hiddenVideo.src = url; await hiddenVideo.play().catch(()=>{}); hiddenVideo.pause();
+      const srcDur = (isFinite(hiddenVideo.duration) && hiddenVideo.duration>0) ? hiddenVideo.duration*1000 : 10000;
+      const clip = { id: uid(), src: url, srcUrl: url, trimStart: 0, trimEnd: 0, startMs: project.playheadMs, durationMs: Math.min(10000, srcDur), speed: 1, label: label || 'Video' };
+      project.videoTrack.push(clip);
+      recomputeDuration();
+      return clip;
+    }
+
+    // Filters & controls
+    ;['brightness','contrast','saturation','grayscale'].forEach(k => {
+      inputs[k].addEventListener('input', () => {
+        project.filters[k] = inputs[k].valueAsNumber; updateFilterChips(); renderPreviewFrame(); pushHistory();
+      });
+    });
+    inputs.blur.addEventListener('input', () => { project.filters.blur = inputs.blur.valueAsNumber; updateFilterChips(); renderPreviewFrame(); pushHistory(); });
+
+    inputs.zoom.addEventListener('input', () => { project.zoom = inputs.zoom.valueAsNumber; chips.zoom.textContent = project.zoom.toFixed(1)+'x'; renderTracks(); });
+    inputs.speed.addEventListener('input', () => {
+      const val = inputs.speed.valueAsNumber;
+      chips.speed.textContent = val.toFixed(2)+'x';
+      if (project.selectionId && project.selectionType==='video') {
+        const c = project.videoTrack.find(c=>c.id===project.selectionId);
+        if (c) { c.speed = val; pushHistory(); renderAll(); }
+      }
+    });
+
+    // Playback
+    let rafId = null; let lastTs = 0;
+    function tick(ts) {
+      if (!project.isPlaying) return;
+      if (!lastTs) lastTs = ts;
+      const dt = ts - lastTs; lastTs = ts;
+      // compute speed from active clip if any
+      let speed = 1;
+      const t = project.playheadMs;
+      const active = project.videoTrack.find(c => t >= c.startMs && t <= c.startMs + c.durationMs);
+      if (active) speed = active.speed || 1;
+      project.playheadMs = clamp(project.playheadMs + dt * speed, 0, project.durationMs);
+      if (project.playheadMs >= project.durationMs) { project.isPlaying = false; playBtn.textContent = 'Play'; }
+      timeBadge.textContent = formatTime(project.playheadMs);
+      renderRuler();
+      renderPreviewFrame();
+      if (project.isPlaying) rafId = requestAnimationFrame(tick);
+    }
+
+    function playPause() {
+      project.isPlaying = !project.isPlaying;
+      playBtn.textContent = project.isPlaying ? 'Pause' : 'Play';
+      lastTs = 0;
+      if (project.isPlaying) rafId = requestAnimationFrame(tick);
+    }
+
+    playBtn.addEventListener('click', playPause);
+    stopBtn.addEventListener('click', () => { project.isPlaying = false; playBtn.textContent = 'Play'; project.playheadMs = 0; renderRuler(); renderPreviewFrame(); timeBadge.textContent = formatTime(project.playheadMs); });
+
+    // Tools
+    $('#btnSplit').addEventListener('click', () => splitAtPlayhead());
+    $('#btnTrimStart').addEventListener('click', () => trimAtPlayhead('start'));
+    $('#btnTrimEnd').addEventListener('click', () => trimAtPlayhead('end'));
+    $('#btnAddText').addEventListener('click', () => addTextOverlay());
+    $('#btnAddImageOverlay').addEventListener('click', () => inputs.image.click());
+    $('#btnDelete').addEventListener('click', () => deleteSelection());
+
+    // Project file
+    $('#btnNew').addEventListener('click', () => { pushHistory(); Object.assign(project, { durationMs:0, zoom:1, filters:{brightness:1,contrast:1,saturation:1,grayscale:0,blur:0}, videoTrack:[], overlayTrack:[], audioTrack:[], selectionId:null, selectionType:null, playheadMs:0, isPlaying:false }); renderAll(); });
+    $('#btnSave').addEventListener('click', () => { const blob = new Blob([JSON.stringify(project, null, 2)], {type:'application/json'}); downloadBlob(blob, 'project.json'); });
+    $('#btnOpen').addEventListener('click', () => { const inp = document.createElement('input'); inp.type='file'; inp.accept='application/json'; inp.onchange = async (e)=>{ const f=e.target.files?.[0]; if(!f) return; const txt = await f.text(); pushHistory(); applyState(txt); }; inp.click(); });
+
+    // Undo/Redo
+    $('#btnUndo').addEventListener('click', () => { if (!history.length) return; const last = history.pop(); future.push(JSON.stringify(project)); applyState(last); });
+    $('#btnRedo').addEventListener('click', () => { if (!future.length) return; const nxt = future.pop(); history.push(JSON.stringify(project)); applyState(nxt); });
+
+    // Export WebM
+    $('#btnExportWebM').addEventListener('click', exportWebM);
+    // Export MP4 (experimental via ffmpeg.wasm, transcode from WebM)
+    $('#btnExportMP4').addEventListener('click', exportMP4);
+
+    // Keyboard
+    window.addEventListener('keydown', (e) => {
+      if (['INPUT','TEXTAREA'].includes(document.activeElement.tagName)) return;
+      if (e.code==='Space') { e.preventDefault(); playPause(); }
+      else if (e.key==='j' || e.key==='J') { inputs.speed.value = Math.max(0.25, inputs.speed.valueAsNumber - 0.25); inputs.speed.dispatchEvent(new Event('input')); }
+      else if (e.key==='l' || e.key==='L') { inputs.speed.value = Math.min(3, inputs.speed.valueAsNumber + 0.25); inputs.speed.dispatchEvent(new Event('input')); }
+      else if (e.key==='k' || e.key==='K') { playPause(); }
+      else if (e.key==='x' || e.key==='X') { splitAtPlayhead(); }
+      else if (e.key==='i' || e.key==='I') { trimAtPlayhead('start'); }
+      else if (e.key==='o' || e.key==='O') { trimAtPlayhead('end'); }
+      else if (e.key==='t' || e.key==='T') { addTextOverlay(); }
+      else if (e.key==='Delete') { deleteSelection(); }
+      else if ((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='z') { $('#btnUndo').click(); }
+      else if ((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='y') { $('#btnRedo').click(); }
+      else if (e.key==='.') { stopBtn.click(); }
+      else if (e.key==='e' || e.key==='E') { $('#btnExportWebM').click(); }
+    });
+
+    // ---------- Editing ops ----------
+    function uid() { return Math.random().toString(36).slice(2,9); }
+
+    function getSelected() {
+      const { selectionId, selectionType } = project; if (!selectionId) return null;
+      const arr = selectionType==='video'? project.videoTrack : selectionType==='overlay'? project.overlayTrack : project.audioTrack;
+      const idx = arr.findIndex(c=>c.id===selectionId);
+      return { arr, idx, clip: arr[idx] };
+    }
+
+    function splitAtPlayhead() {
+      const t = project.playheadMs;
+      const v = project.videoTrack.find(c => t > c.startMs && t < c.startMs + c.durationMs);
+      if (!v) return;
+      pushHistory();
+      const leftDur = t - v.startMs;
+      const rightDur = v.durationMs - leftDur;
+      const left = { ...v, id: uid(), durationMs: leftDur };
+      const right = { ...v, id: uid(), startMs: t, durationMs: rightDur, trimStart: v.trimStart + leftDur * (v.speed||1) };
+      const idx = project.videoTrack.findIndex(c=>c.id===v.id);
+      project.videoTrack.splice(idx, 1, left, right);
+      renderAll();
+    }
+
+    function trimAtPlayhead(which) {
+      const sel = getSelected(); if (!sel) return; const { clip } = sel;
+      const t = clamp(project.playheadMs, clip.startMs, clip.startMs + clip.durationMs);
+      pushHistory();
+      if (which==='start') {
+        const delta = t - clip.startMs;
+        clip.startMs = t;
+        clip.durationMs = Math.max(100, clip.durationMs - delta);
+        if (project.selectionType==='video') clip.trimStart += delta * (clip.speed||1);
+      } else {
+        const newDur = t - clip.startMs;
+        clip.durationMs = Math.max(100, newDur);
+      }
+      recomputeDuration(); renderAll();
+    }
+
+    function addTextOverlay() {
+      const clip = { id: uid(), type:'text', text:'Your Title', x:0.1, y:0.1, w:0.5, h:0.1, startMs: project.playheadMs, durationMs: 5000 };
+      project.overlayTrack.push(clip); pushHistory(); renderAll();
+    }
+
+    function deleteSelection() {
+      const sel = getSelected(); if (!sel) return; const { arr, idx } = sel; pushHistory(); arr.splice(idx,1); renderAll();
+    }
+
+    // ---------- Export ----------
+    async function exportWebM() {
+      // Compose by real-time rendering canvas + mixing audio with AudioContext
+      const fps = 30;
+      const stream = canvas.captureStream(fps);
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const dest = audioCtx.createMediaStreamDestination();
+
+      // Video audio from active segments (we'll control the hidden video element)
+      const videoSource = audioCtx.createMediaElementSource(hiddenVideo);
+      videoSource.connect(dest);
+
+      // Audio track elements
+      const audioEls = project.audioTrack.map(a => {
+        const el = new Audio(a.srcUrl || a.src);
+        el.crossOrigin = 'anonymous';
+        el.preload = 'auto';
+        const src = audioCtx.createMediaElementSource(el);
+        const gain = audioCtx.createGain();
+        gain.gain.value = a.gain ?? 1;
+        src.connect(gain).connect(dest);
+        return { a, el };
+      });
+
+      const combined = new MediaStream([...stream.getVideoTracks(), ...dest.stream.getAudioTracks()]);
+      const recorder = new MediaRecorder(combined, { mimeType: 'video/webm;codecs=vp9,opus' });
+      const chunks = [];
+      recorder.ondataavailable = (e)=>{ if (e.data && e.data.size) chunks.push(e.data); };
+      const done = new Promise(resolve => { recorder.onstop = () => resolve(); });
+
+      // Timeline playback for export
+      let exportStart = performance.now();
+      let baseTime = 0; // ms
+      project.isPlaying = false; playBtn.textContent = 'Play';
+      let running = true;
+      recorder.start(100);
+
+      // Schedule audio overlay starts
+      audioEls.forEach(({a, el}) => {
+        setTimeout(()=>{ el.currentTime = 0; el.play(); }, a.startMs);
+        setTimeout(()=>{ try{ el.pause(); } catch(e){} }, a.startMs + a.durationMs + 50);
+      });
+
+      // Draw loop advancing playhead
+      const initialPlayhead = project.playheadMs;
+      project.playheadMs = 0;
+      hiddenVideo.playbackRate = 1;
+      await hiddenVideo.play().catch(()=>{});
+      hiddenVideo.pause();
+
+      function step() {
+        if (!running) return;
+        const now = performance.now();
+        const t = now - exportStart;
+        project.playheadMs = clamp(t, 0, project.durationMs);
+
+        // Determine active video segment and set hidden video currentTime
+        const active = project.videoTrack.find(c => project.playheadMs >= c.startMs && project.playheadMs <= c.startMs + c.durationMs);
+        if (active) {
+          const local = (project.playheadMs - active.startMs) * (active.speed || 1);
+          const srcTime = (active.trimStart + local) / 1000;
+          if (hiddenVideo.src !== active.srcUrl) {
+            hiddenVideo.src = active.srcUrl; hiddenVideo.currentTime = srcTime;
+          } else if (Math.abs(hiddenVideo.currentTime - srcTime) > 0.03) {
+            try { hiddenVideo.currentTime = srcTime; } catch(e) {}
+          }
+        }
+
+        renderPreviewFrame();
+        timeBadge.textContent = formatTime(project.playheadMs);
+        renderRuler();
+
+        if (t < project.durationMs) {
+          requestAnimationFrame(step);
+        } else {
+          running = false;
+          setTimeout(()=> {
+            recorder.stop();
+            audioEls.forEach(({el}) => { try{ el.pause(); } catch(e){} });
+          }, 60);
+        }
+      }
+      requestAnimationFrame(step);
+
+      await done;
+      const blob = new Blob(chunks, { type: 'video/webm' });
+      downloadBlob(blob, 'export.webm');
+      project.playheadMs = initialPlayhead; renderRuler(); renderPreviewFrame();
+    }
+
+    async function exportMP4() {
+      // Fallback: export WebM then transcode to MP4 in-browser using ffmpeg.wasm
+      const tmp = await exportWebMToBlob();
+      try {
+        const { createFFmpeg, fetchFile } = FFmpeg;
+        const ffmpeg = createFFmpeg({ log: false, corePath: 'https://unpkg.com/@ffmpeg/core@0.12.10/dist/ffmpeg-core.js' });
+        await ffmpeg.load();
+        ffmpeg.FS('writeFile', 'input.webm', await fetchFile(tmp));
+        await ffmpeg.run('-i', 'input.webm', '-c:v', 'libx264', '-preset', 'veryfast', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', 'output.mp4');
+        const data = ffmpeg.FS('readFile', 'output.mp4');
+        const mp4Blob = new Blob([data.buffer], { type: 'video/mp4' });
+        downloadBlob(mp4Blob, 'export.mp4');
+      } catch (e) {
+        alert('MP4 export failed; using WebM instead. ' + e.message);
+        downloadBlob(tmp, 'export.webm');
+      }
+    }
+
+    async function exportWebMToBlob() {
+      const fps = 30;
+      const stream = canvas.captureStream(fps);
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const dest = audioCtx.createMediaStreamDestination();
+      const videoSource = audioCtx.createMediaElementSource(hiddenVideo); videoSource.connect(dest);
+      const audioEls = project.audioTrack.map(a => {
+        const el = new Audio(a.srcUrl || a.src); el.crossOrigin='anonymous'; el.preload='auto';
+        const src = audioCtx.createMediaElementSource(el); const gain = audioCtx.createGain(); gain.gain.value = a.gain ?? 1; src.connect(gain).connect(dest);
+        return { a, el };
+      });
+      const combined = new MediaStream([...stream.getVideoTracks(), ...dest.stream.getAudioTracks()]);
+      const chunks = []; const rec = new MediaRecorder(combined, { mimeType: 'video/webm;codecs=vp9,opus' });
+      const done = new Promise(res => { rec.onstop = res; });
+      rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+      rec.start(100);
+
+      // Schedule playback
+      const start = performance.now();
+      project.playheadMs = 0; const initial = project.playheadMs; let running = true;
+      audioEls.forEach(({a, el}) => { setTimeout(()=>{ el.currentTime=0; el.play(); }, a.startMs); setTimeout(()=>{ try{el.pause();}catch(_){} }, a.startMs + a.durationMs + 50); });
+      function step() {
+        if (!running) return;
+        const t = performance.now() - start; project.playheadMs = clamp(t, 0, project.durationMs);
+        const active = project.videoTrack.find(c => project.playheadMs >= c.startMs && project.playheadMs <= c.startMs + c.durationMs);
+        if (active) {
+          const local = (project.playheadMs - active.startMs) * (active.speed || 1);
+          const srcTime = (active.trimStart + local) / 1000;
+          if (hiddenVideo.src !== active.srcUrl) { hiddenVideo.src = active.srcUrl; hiddenVideo.currentTime = srcTime; }
+          else if (Math.abs(hiddenVideo.currentTime - srcTime) > 0.03) { try{ hiddenVideo.currentTime = srcTime; }catch(e){} }
+        }
+        renderPreviewFrame();
+        if (t < project.durationMs) requestAnimationFrame(step); else { running=false; setTimeout(()=>rec.stop(), 50); }
+      }
+      requestAnimationFrame(step);
+      await done;
+      project.playheadMs = initial; renderRuler(); renderPreviewFrame();
+      return new Blob(chunks, { type: 'video/webm' });
+    }
+
+    // ---------- Init ----------
+    pushHistory();
+    renderAll();
+  })();
+  </script>
+</body>
+</html>
